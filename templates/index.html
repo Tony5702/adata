@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票实时行情 - 昨日成交量前十</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .update-time {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+            opacity: 0.85;
+        }
+
+        .stock-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stock-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .stock-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .stock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .stock-code {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .stock-name {
+            font-size: 1.1em;
+            color: #666;
+        }
+
+        .stock-price {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .stock-price.up {
+            color: #e74c3c;
+        }
+
+        .stock-price.down {
+            color: #27ae60;
+        }
+
+        .stock-price.flat {
+            color: #333;
+        }
+
+        .stock-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            font-size: 0.85em;
+            color: #999;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 1.1em;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .info-value.up {
+            color: #e74c3c;
+        }
+
+        .info-value.down {
+            color: #27ae60;
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.2em;
+            padding: 40px;
+        }
+
+        .error {
+            background: #e74c3c;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .refresh-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.9);
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 0.9em;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            display: none;
+        }
+
+        .refresh-indicator.active {
+            display: block;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .stock-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stock-price {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📈 股票实时行情</h1>
+            <p class="subtitle">昨日成交量前十名</p>
+        </div>
+        
+        <div class="update-time" id="updateTime">
+            最后更新时间: --
+        </div>
+
+        <div class="refresh-indicator" id="refreshIndicator">
+            🔄 正在更新数据...
+        </div>
+
+        <div class="stock-grid" id="stockGrid">
+            <div class="loading">正在加载数据...</div>
+        </div>
+    </div>
+
+    <script>
+        function formatNumber(num) {
+            if (num >= 100000000) {
+                return (num / 100000000).toFixed(2) + '亿';
+            } else if (num >= 10000) {
+                return (num / 10000).toFixed(2) + '万';
+            }
+            return num.toLocaleString();
+        }
+
+        function formatPrice(price) {
+            return price.toFixed(2);
+        }
+
+        function formatChange(change) {
+            const sign = change >= 0 ? '+' : '';
+            return sign + change.toFixed(2);
+        }
+
+        function formatChangePct(changePct) {
+            const sign = changePct >= 0 ? '+' : '';
+            return sign + changePct.toFixed(2) + '%';
+        }
+
+        function getPriceClass(change) {
+            if (change > 0) return 'up';
+            if (change < 0) return 'down';
+            return 'flat';
+        }
+
+        function createStockCard(stock, index) {
+            const priceClass = getPriceClass(stock.change);
+            const changeClass = stock.change >= 0 ? 'up' : 'down';
+            
+            return `
+                <div class="stock-card">
+                    <div class="stock-header">
+                        <div>
+                            <div class="stock-code">${stock.stock_code}</div>
+                            <div class="stock-name">${stock.short_name}</div>
+                        </div>
+                        <div style="font-size: 1.5em;">#${index + 1}</div>
+                    </div>
+                    <div class="stock-price ${priceClass}">
+                        ${formatPrice(stock.price)}
+                    </div>
+                    <div class="stock-info">
+                        <div class="info-item">
+                            <span class="info-label">涨跌额</span>
+                            <span class="info-value ${changeClass}">${formatChange(stock.change)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">涨跌幅</span>
+                            <span class="info-value ${changeClass}">${formatChangePct(stock.change_pct)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">成交量</span>
+                            <span class="info-value">${formatNumber(stock.volume)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">成交额</span>
+                            <span class="info-value">${formatNumber(stock.amount)}元</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function fetchStockData() {
+            const refreshIndicator = document.getElementById('refreshIndicator');
+            const stockGrid = document.getElementById('stockGrid');
+            const updateTime = document.getElementById('updateTime');
+            
+            refreshIndicator.classList.add('active');
+            
+            try {
+                const response = await fetch('/api/top_stocks');
+                const result = await response.json();
+                
+                if (result.success && result.data.length > 0) {
+                    stockGrid.innerHTML = result.data.map((stock, index) => createStockCard(stock, index)).join('');
+                    updateTime.textContent = `最后更新时间: ${result.update_time}`;
+                } else if (result.error) {
+                    stockGrid.innerHTML = `<div class="error">${result.error}</div>`;
+                } else {
+                    stockGrid.innerHTML = '<div class="loading">暂无数据</div>';
+                }
+            } catch (error) {
+                stockGrid.innerHTML = `<div class="error">获取数据失败: ${error.message}</div>`;
+            } finally {
+                refreshIndicator.classList.remove('active');
+            }
+        }
+
+        function init() {
+            fetchStockData();
+            setInterval(fetchStockData, 30000);
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
