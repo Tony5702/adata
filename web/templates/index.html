@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时股票行情 - 昨日成交量前十</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .stock-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .stock-table th {
+            background: #f8f9fa;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stock-table td {
+            padding: 20px 15px;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 15px;
+        }
+
+        .stock-table tr:hover {
+            background: #f8f9fa;
+            transition: background 0.3s ease;
+        }
+
+        .stock-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .stock-code {
+            color: #6c757d;
+            font-size: 13px;
+            margin-left: 8px;
+        }
+
+        .price {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .change-positive {
+            color: #28a745;
+        }
+
+        .change-negative {
+            color: #dc3545;
+        }
+
+        .change-neutral {
+            color: #6c757d;
+        }
+
+        .volume {
+            color: #6c757d;
+        }
+
+        .update-time {
+            padding: 15px 30px;
+            text-align: right;
+            color: #6c757d;
+            font-size: 13px;
+            background: #f8f9fa;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 50px;
+            color: #6c757d;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4facfe;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-right: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                border-radius: 8px;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+
+            .stock-table {
+                font-size: 13px;
+            }
+
+            .stock-table th,
+            .stock-table td {
+                padding: 12px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📈 实时股票行情</h1>
+            <p>昨日成交量前十名股票的当前实时数据</p>
+        </div>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <span>加载中...</span>
+        </div>
+
+        <table id="stockTable" class="stock-table" style="display: none;">
+            <thead>
+                <tr>
+                    <th>排名</th>
+                    <th>股票</th>
+                    <th>当前价</th>
+                    <th>涨跌幅</th>
+                    <th>成交量</th>
+                    <th>成交额</th>
+                    <th>最高</th>
+                    <th>最低</th>
+                </tr>
+            </thead>
+            <tbody id="stockBody">
+            </tbody>
+        </table>
+
+        <div id="updateTime" class="update-time"></div>
+    </div>
+
+    <script>
+        async function fetchStockData() {
+            const loading = document.getElementById('loading');
+            const stockTable = document.getElementById('stockTable');
+            const stockBody = document.getElementById('stockBody');
+            const updateTime = document.getElementById('updateTime');
+
+            try {
+                loading.style.display = 'flex';
+                stockTable.style.display = 'none';
+
+                const response = await fetch('/api/stocks');
+                const data = await response.json();
+
+                stockBody.innerHTML = '';
+                
+                data.forEach((stock, index) => {
+                    const row = document.createElement('tr');
+                    
+                    const changeClass = stock.change_percent > 0 ? 'change-positive' : 
+                                      stock.change_percent < 0 ? 'change-negative' : 'change-neutral';
+                    
+                    row.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>
+                            <span class="stock-name">${stock.name}</span>
+                            <span class="stock-code">${stock.code}</span>
+                        </td>
+                        <td class="price ${changeClass}">${stock.price.toFixed(2)}</td>
+                        <td class="${changeClass}">${stock.change_percent > 0 ? '+' : ''}${stock.change_percent.toFixed(2)}%</td>
+                        <td class="volume">${(stock.volume / 10000).toFixed(0)}万</td>
+                        <td>¥${(stock.amount / 100000000).toFixed(2)}亿</td>
+                        <td>${stock.high.toFixed(2)}</td>
+                        <td>${stock.low.toFixed(2)}</td>
+                    `;
+                    
+                    stockBody.appendChild(row);
+                });
+
+                const now = new Date();
+                updateTime.textContent = `更新时间: ${now.toLocaleString('zh-CN')}`;
+
+                loading.style.display = 'none';
+                stockTable.style.display = 'table';
+            } catch (error) {
+                console.error('Error fetching stock data:', error);
+                loading.innerHTML = '<span style="color: #dc3545;">加载失败，请刷新页面重试</span>';
+            }
+        }
+
+        fetchStockData();
+        setInterval(fetchStockData, 30000);
+    </script>
+</body>
+</html>
