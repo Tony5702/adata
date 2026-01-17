@@ -10,6 +10,8 @@
 
 import threading
 import time
+from collections import defaultdict, deque
+from urllib.parse import urlparse
 
 import requests
 
@@ -41,10 +43,91 @@ class SunProxy(object):
             del cls._data[key]
 
 
+class RateLimiter(object):
+    _instance_lock = threading.Lock()
+
+    def __init__(self, default_max_requests=30, default_window_seconds=60):
+        self._request_times = defaultdict(deque)
+        self._limits = defaultdict(lambda: (default_max_requests, default_window_seconds))
+        self._default_max_requests = default_max_requests
+        self._default_window_seconds = default_window_seconds
+        self._lock = threading.Lock()
+
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(RateLimiter, "_instance"):
+            with RateLimiter._instance_lock:
+                if not hasattr(RateLimiter, "_instance"):
+                    RateLimiter._instance = object.__new__(cls)
+        return RateLimiter._instance
+
+    def set_rate_limit(self, domain, max_requests=None, window_seconds=None):
+        with self._lock:
+            if max_requests is None:
+                max_requests = self._default_max_requests
+            if window_seconds is None:
+                window_seconds = self._default_window_seconds
+            self._limits[domain] = (max_requests, window_seconds)
+
+    def _get_domain(self, url):
+        parsed = urlparse(url)
+        return parsed.netloc
+
+    def _clean_old_requests(self, domain, current_time, window_seconds):
+        request_times = self._request_times[domain]
+        while request_times and current_time - request_times[0] > window_seconds:
+            request_times.popleft()
+
+    def acquire(self, url):
+        domain = self._get_domain(url)
+        max_requests, window_seconds = self._limits[domain]
+        current_time = time.time()
+
+        with self._lock:
+            self._clean_old_requests(domain, current_time, window_seconds)
+            request_times = self._request_times[domain]
+
+            if len(request_times) >= max_requests:
+                sleep_time = window_seconds - (current_time - request_times[0])
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                    self._clean_old_requests(domain, time.time(), window_seconds)
+
+            self._request_times[domain].append(time.time())
+
+    def reset(self, domain=None):
+        with self._lock:
+            if domain:
+                self._request_times[domain].clear()
+            else:
+                self._request_times.clear()
+                self._limits.clear()
+
+
+rate_limiter = RateLimiter()
+
+
 class SunRequests(object):
     def __init__(self, sun_proxy: SunProxy = None) -> None:
         super().__init__()
         self.sun_proxy = sun_proxy
+
+    @staticmethod
+    def set_rate_limit(domain, max_requests=None, window_seconds=None):
+        """
+        设置指定域名的请求频率限制
+        :param domain: 域名，如 'eastmoney.com' 或 'baidu.com'
+        :param max_requests: 最大请求数，默认为30
+        :param window_seconds: 时间窗口（秒），默认为60
+        """
+        rate_limiter.set_rate_limit(domain, max_requests, window_seconds)
+
+    @staticmethod
+    def reset_rate_limit(domain=None):
+        """
+        重置频率限制器
+        :param domain: 指定域名，如果为None则重置所有
+        """
+        rate_limiter.reset(domain)
 
     def request(self, method='get', url=None, times=3, retry_wait_time=1588, proxies=None, wait_time=None, **kwargs):
         """
@@ -58,9 +141,12 @@ class SunRequests(object):
         :param kwargs: 其它 requests 参数，用法相同
         :return: res
         """
-        # 1. 获取设置代理
+        # 1. 频率限制
+        if url:
+            rate_limiter.acquire(url)
+        # 2. 获取设置代理
         proxies = self.__get_proxies(proxies)
-        # 2. 请求数据结果
+        # 3. 请求数据结果
         res = None
         for i in range(times):
             if wait_time:
