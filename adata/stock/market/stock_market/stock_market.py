@@ -38,8 +38,19 @@ class StockMarket(object):
         :param adjust_type: k线复权类型：0.不复权；1.前复权；2.后复权 默认：1 前复权 （目前：只有前复权,作为股票交易已经可用）
         :return: k线行情数据
         """
+        # 1. 尝试东方财富数据源
         df = self.east_market.get_market(stock_code=stock_code, start_date=start_date, end_date=end_date,
                                          k_type=k_type, adjust_type=adjust_type)
+        if not df.empty:
+            return df
+        
+        # 2. 如果东方财富数据源失败，尝试百度数据源
+        df = self.baidu_market.get_market(stock_code=stock_code, start_date=start_date, end_date=end_date,
+                                          k_type=k_type, adjust_type=adjust_type)
+        if not df.empty:
+            return df
+        
+        # 3. 如果所有数据源都失败，返回空DataFrame
         return df
 
     def get_market_min(self, stock_code: str = '000001'):

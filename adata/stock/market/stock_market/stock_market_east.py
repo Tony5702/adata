@@ -39,7 +39,7 @@ class StockMarketEast(StockMarketTemplate):
         se_cid = 1 if stock_code.startswith('6') else 0
         start_date = start_date.replace('-', '') if start_date else '19900101'
         end_date = end_date.replace('-', '') if end_date else get_cur_time("%Y%m%d")
-        k_type = f"10{k_type}" if int(k_type) < 5 else k_type
+        k_type = f"10{k_type}" if int(k_type) < 5 else f"{k_type}"
         params = {"fields1": "f1,f2,f3,f4,f5,f6",
                   "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116",
                   "ut": "7eea3edcaed734bea9cbfc24409ed989",
@@ -61,17 +61,22 @@ class StockMarketEast(StockMarketTemplate):
             return pd.DataFrame()
         data = [item.split(",") for item in lines]
         df = pd.DataFrame(data=data, columns=["trade_date", "open", "close", "high", "low", "volume", "amount",
-                                              '', "change_pct", "change", "turnover_ratio"])
+                                              'unused', "change_pct", "change", "turnover_ratio"])
         # 4.清洗数据
+        # 先转换数值类型
+        numeric_columns = ['open', 'close', 'volume', 'high', 'low', 'amount', 'change', 'change_pct',
+                           'turnover_ratio']
+        df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric)
+        # 计算pre_close
         df['pre_close'] = df['close'] - df['change']
         df['pre_close'] = df['pre_close'].round(2)
+        # 转换成交量为股
         df['volume'] = df['volume'].astype(int) * 100
+        # 处理日期时间
         df['trade_time'] = pd.to_datetime(df['trade_date']).dt.strftime('%Y-%m-%d %H:%M:%S')
         df['trade_date'] = pd.to_datetime(df['trade_date']).dt.strftime('%Y-%m-%d')
         df['stock_code'] = stock_code
-        numeric_columns = ['open', 'close', 'volume', 'high', 'low', 'amount', 'change', 'change_pct',
-                           'turnover_ratio', 'pre_close']
-        df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric)
+        # 重置索引并选择需要的列
         df.reset_index(inplace=True, drop=True)
         return df[['stock_code', 'trade_time', "trade_date", "open", "close", "high", "low", "volume", "amount",
                    "change_pct", "change", "turnover_ratio", "pre_close"]]
