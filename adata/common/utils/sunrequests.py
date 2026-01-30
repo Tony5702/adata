@@ -13,6 +13,8 @@ import time
 
 import requests
 
+from adata.common.utils.rate_limiter import rate_limiter
+
 
 class SunProxy(object):
     _data = {}
@@ -46,7 +48,8 @@ class SunRequests(object):
         super().__init__()
         self.sun_proxy = sun_proxy
 
-    def request(self, method='get', url=None, times=3, retry_wait_time=1588, proxies=None, wait_time=None, **kwargs):
+    def request(self, method='get', url=None, times=3, retry_wait_time=1588, proxies=None, wait_time=None, 
+                rate_limit=None, **kwargs):
         """
         简单封装的请求，参考requests，增加循环次数和次数之间的等待时间
         :param proxies: 代理配置
@@ -55,23 +58,40 @@ class SunRequests(object):
         :param times: 次数，int
         :param retry_wait_time: 重试等待时间，毫秒
         :param wait_time: 等待时间：毫秒；表示每个请求的间隔时间，在请求之前等待sleep，主要用于防止请求太频繁的限制。
+        :param rate_limit: 自定义该请求的频率限制（每分钟次数），None则使用默认限制
         :param kwargs: 其它 requests 参数，用法相同
         :return: res
         """
-        # 1. 获取设置代理
+        # 1. 频率限制检查
+        if rate_limit is not None:
+            # 临时设置自定义限制
+            domain = rate_limiter._extract_domain(url)
+            original_limit = rate_limiter.get_domain_limit(domain)
+            rate_limiter.set_domain_limit(domain, rate_limit)
+        
+        # 2. 执行频率限制等待
+        rate_limiter.wait_if_needed(url)
+        
+        # 3. 获取设置代理
         proxies = self.__get_proxies(proxies)
-        # 2. 请求数据结果
+        
+        # 4. 请求数据结果
         res = None
-        for i in range(times):
-            if wait_time:
-                time.sleep(wait_time / 1000)
-            res = requests.request(method=method, url=url, proxies=proxies, **kwargs)
-            if res.status_code in (200, 404):
-                return res
-            time.sleep(retry_wait_time / 1000)
-            if i == times - 1:
-                return res
-        return res
+        try:
+            for i in range(times):
+                if wait_time:
+                    time.sleep(wait_time / 1000)
+                res = requests.request(method=method, url=url, proxies=proxies, **kwargs)
+                if res.status_code in (200, 404):
+                    return res
+                time.sleep(retry_wait_time / 1000)
+                if i == times - 1:
+                    return res
+            return res
+        finally:
+            # 5. 恢复原始频率限制（如果设置了自定义限制）
+            if rate_limit is not None:
+                rate_limiter.set_domain_limit(domain, original_limit)
 
     def __get_proxies(self, proxies):
         """
