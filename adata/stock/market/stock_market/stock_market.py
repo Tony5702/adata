@@ -68,9 +68,12 @@ class StockMarket(object):
         """
         if code_list is None:
             return pd.DataFrame()
-        # 1. 先查询新浪
-        df = self.sina_market.list_market_current(code_list=code_list)
-        # 2. 然后腾讯
+        # 1. 优先使用东方财富
+        df = self.east_market.list_market_current(code_list=code_list)
+        # 2. 失败则查询新浪
+        if df.empty:
+            df = self.sina_market.list_market_current(code_list=code_list)
+        # 3. 再失败则查询腾讯
         if df.empty:
             df = self.qq_market.list_market_current(code_list=code_list)
         return df

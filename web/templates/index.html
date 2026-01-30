@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>股票实时行情</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .update-info {
+            color: #8892b0;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        .stock-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stock-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .stock-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 212, 255, 0.15);
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .stock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .stock-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .stock-code {
+            font-size: 0.85rem;
+            color: #8892b0;
+            margin-top: 4px;
+        }
+
+        .stock-price {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 16px 0;
+        }
+
+        .stock-change {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .stock-change.positive {
+            background: rgba(255, 80, 80, 0.15);
+            color: #ff5050;
+        }
+
+        .stock-change.negative {
+            background: rgba(0, 200, 140, 0.15);
+            color: #00c88c;
+        }
+
+        .stock-volume {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .volume-label {
+            font-size: 0.85rem;
+            color: #8892b0;
+            margin-bottom: 8px;
+        }
+
+        .volume-value {
+            font-size: 1rem;
+            color: #fff;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px 0;
+            color: #8892b0;
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .stock-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>股票实时行情</h1>
+            <div class="update-info">
+                <span>数据每3分钟自动刷新...</span>
+            </div>
+        </header>
+
+        <div class="stock-grid" id="stockGrid">
+        </div>
+
+        <footer>
+            <p>数据来源: AData - 为量化而生</p>
+        </footer>
+    </div>
+
+    <script>
+        function formatVolume(volume) {
+            if (volume >= 100000000) {
+                return (volume / 100000000).toFixed(2) + '亿';
+            } else if (volume >= 10000) {
+                return (volume / 10000).toFixed(2) + '万';
+            }
+            return volume.toFixed(2);
+        }
+
+        function formatPrice(price) {
+            return parseFloat(price).toFixed(2);
+        }
+
+        function formatChange(change, changePercent) {
+            const sign = change >= 0 ? '+' : '';
+            return {
+                change: sign + change.toFixed(2),
+                percent: sign + changePercent.toFixed(2) + '%'
+            };
+        }
+
+        function renderStocks(stocks) {
+            const grid = document.getElementById('stockGrid');
+            grid.innerHTML = '';
+
+            stocks.forEach(stock => {
+                const isPositive = stock.change >= 0;
+                const formatted = formatChange(stock.change, stock.change_pct);
+                
+                const card = document.createElement('div');
+                card.className = 'stock-card';
+                card.innerHTML = `
+                    <div class="stock-header">
+                        <div>
+                            <div class="stock-name">${stock.short_name}</div>
+                            <div class="stock-code">${stock.stock_code}</div>
+                        </div>
+                    </div>
+                    <div class="stock-price" style="color: ${isPositive ? '#ff5050' : '#00c88c'};">
+                        ${formatPrice(stock.price)}
+                    </div>
+                    <div class="stock-change ${isPositive ? 'positive' : 'negative'}">
+                        <span>${formatted.change}</span>
+                        <span>${formatted.percent}</span>
+                    </div>
+                    <div class="stock-volume">
+                        <div class="volume-label">成交量</div>
+                        <div class="volume-value">${formatVolume(stock.volume)}</div>
+                    </div>
+                    <div class="stock-volume">
+                        <div class="volume-label">成交额</div>
+                        <div class="volume-value">${formatVolume(stock.amount)}</div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        async function fetchStockData() {
+            try {
+                const response = await fetch('/api/top_stocks');
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    renderStocks(result.data);
+                    document.querySelector('.update-info').innerHTML = 
+                        `<span>最后更新: ${result.update_time}</span>`;
+                }
+            } catch (error) {
+                    console.error('获取数据失败:', error);
+                }
+        }
+
+        fetchStockData();
+
+        setInterval(fetchStockData, 180000);
+    </script>
+</body>
+</html>

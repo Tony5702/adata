@@ -25,6 +25,79 @@ class StockMarketEast(StockMarketTemplate):
         super().__init__()
 
     @handler_null
+    def list_market_current(self, code_list=None):
+        """
+        获取多个股票最新行情信息
+        :param code_list: 股票代码列表
+        :return: 当前最新的行情价格信息
+        stock_code: 股票代码
+        short_name: 股票简称
+        price: 当前价格（元）
+        change: 涨跌额（元）
+        change_pct: 涨跌幅（%）
+        volume: 成交量（股）
+        amount: 成交金额（元）
+        """
+        if code_list is None or len(code_list) == 0:
+            return pd.DataFrame(columns=self._MARKET_CURRENT_COLUMNS)
+        
+        secids = []
+        for code in code_list:
+            secid = 1 if code.startswith('6') else 0
+            secids.append(f"{secid}.{code}")
+        
+        params = {
+            "np": "1",
+            "fltt": "2",
+            "invt": "2",
+            "fields": "f12,f14,f2,f3,f4,f18,f17",
+            "secids": ",".join(secids),
+        }
+        url = "https://push2.eastmoney.com/api/qt/ulist.np/get"
+        
+        try:
+            res = requests.request(method='get', url=url, params=params)
+            data_json = res.json()
+        except Exception:
+            return pd.DataFrame(columns=self._MARKET_CURRENT_COLUMNS)
+        
+        if not data_json.get("data") or not data_json["data"].get("diff"):
+            return pd.DataFrame(columns=self._MARKET_CURRENT_COLUMNS)
+        
+        data = []
+        for item in data_json["data"]["diff"]:
+            stock_code = item.get("f12", "")
+            short_name = item.get("f14", "")
+            price = item.get("f2", 0)
+            if price == "-":
+                price = 0
+            change_pct = item.get("f3", 0)
+            if change_pct == "-":
+                change_pct = 0
+            change = item.get("f4", 0)
+            if change == "-":
+                change = 0
+            volume = item.get("f18", 0)
+            if volume == "-":
+                volume = 0
+            amount = item.get("f17", 0)
+            if amount == "-":
+                amount = 0
+            
+            data.append({
+                "stock_code": stock_code,
+                "short_name": short_name,
+                "price": float(price) if price != 0 else 0,
+                "change": float(change) if change != 0 else 0,
+                "change_pct": float(change_pct) if change_pct != 0 else 0,
+                "volume": int(volume) * 100 if volume != 0 else 0,
+                "amount": float(amount) * 10000 if amount != 0 else 0
+            })
+        
+        result_df = pd.DataFrame(data, columns=self._MARKET_CURRENT_COLUMNS)
+        return result_df
+
+    @handler_null
     def get_market(self, stock_code: str = '000001', start_date='1990-01-01', end_date=None, k_type=1,
                    adjust_type: int = 1):
         """
