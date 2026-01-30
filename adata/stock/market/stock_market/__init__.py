@@ -6,4 +6,5 @@
 @log: change log
 """
 from adata.stock.market.stock_market.stock_market import StockMarket
+from adata.stock.market.stock_market.stock_analysis import StockAnalysis
 

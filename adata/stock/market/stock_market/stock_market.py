@@ -13,6 +13,7 @@ from adata.stock.market.stock_market.stock_market_baidu import StockMarketBaiDu
 from adata.stock.market.stock_market.stock_market_east import StockMarketEast
 from adata.stock.market.stock_market.stock_market_qq import StockMarketQQ
 from adata.stock.market.stock_market.stock_market_sina import StockMarketSina
+from adata.stock.market.stock_market.stock_analysis import StockAnalysis
 
 
 class StockMarket(object):
@@ -26,6 +27,7 @@ class StockMarket(object):
         self.qq_market = StockMarketQQ()
         self.baidu_market = StockMarketBaiDu()
         self.east_market = StockMarketEast()
+        self.analysis = StockAnalysis()
 
     def get_market(self, stock_code: str = '000001', start_date='1990-01-01', end_date=None, k_type=1,
                    adjust_type: int = 1):
@@ -86,6 +88,42 @@ class StockMarket(object):
         if res_df.empty:
             res_df = self.baidu_market.get_market_five(stock_code=stock_code)
         return res_df
+
+    def analyze_by_weekday(self, stock_code: str = '000001', start_date='1990-01-01', end_date=None, k_type=1, adjust_type: int = 1):
+        """
+        分析周一到周五每个交易日的平均收益率和平均成交量以及上涨概率
+        :param stock_code: 股票代码
+        :param start_date: 开始时间
+        :param end_date: 结束日期
+        :param k_type: k线类型：1.日；2.周；3.月 默认：1 日k
+        :param adjust_type: k线复权类型：0.不复权；1.前复权；2.后复权 默认：1 前复权
+        :return: DataFrame，行为星期维度，列为统计指标
+        """
+        # 获取股票数据
+        df = self.get_market(stock_code=stock_code, start_date=start_date, end_date=end_date, k_type=k_type, adjust_type=adjust_type)
+        if df.empty:
+            return pd.DataFrame()
+        
+        # 调用分析方法
+        return self.analysis.analyze_by_weekday(df)
+
+    def analyze_by_month_period(self, stock_code: str = '000001', start_date='1990-01-01', end_date=None, k_type=1, adjust_type: int = 1):
+        """
+        分析每月月初（1-10），月中（11-20），月末（21-月最后一天）三个区间的平均收益率和平均成交量以及上涨概率
+        :param stock_code: 股票代码
+        :param start_date: 开始时间
+        :param end_date: 结束日期
+        :param k_type: k线类型：1.日；2.周；3.月 默认：1 日k
+        :param adjust_type: k线复权类型：0.不复权；1.前复权；2.后复权 默认：1 前复权
+        :return: DataFrame，行为月份区间维度，列为统计指标
+        """
+        # 获取股票数据
+        df = self.get_market(stock_code=stock_code, start_date=start_date, end_date=end_date, k_type=k_type, adjust_type=adjust_type)
+        if df.empty:
+            return pd.DataFrame()
+        
+        # 调用分析方法
+        return self.analysis.analyze_by_month_period(df)
 
     def get_market_bar(self, stock_code: str = '000001'):
         """
