@@ -1,28 +1,25 @@
 # -*- coding: utf-8 -*-
 """
-@desc: 指标计算
-@author: 1nchaos
-@time: 2023/5/23
-@log: change log
+测试星期维度和月度区间分析功能
 """
+import pandas as pd
+import numpy as np
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import pandas as pd
 import numpy as np
 
 
-class CalIndex(object):
+class CalIndex:
 
     def __init__(self) -> None:
         super().__init__()
 
     @staticmethod
     def analyze_weekday_stats(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        分析周一到周五每个交易日的平均收益率、平均成交量和上涨概率
-        
-        :param df: 股票日K数据，需包含 trade_date、open、close、volume 字段
-        :return: DataFrame，行为星期维度，列为统计指标
-        """
         df = df.copy()
         df['trade_date'] = pd.to_datetime(df['trade_date'])
         df = df.sort_values('trade_date').reset_index(drop=True)
@@ -52,13 +49,6 @@ class CalIndex(object):
 
     @staticmethod
     def analyze_month_period_stats(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        分析每月月初（1-10）、月中（11-20）、月末（21-月最后一天）三个区间的
-        平均收益率、平均成交量和上涨概率
-        
-        :param df: 股票日K数据，需包含 trade_date、open、close、volume 字段
-        :return: DataFrame，行为月度区间维度，列为统计指标
-        """
         df = df.copy()
         df['trade_date'] = pd.to_datetime(df['trade_date'])
         df = df.sort_values('trade_date').reset_index(drop=True)
@@ -96,3 +86,28 @@ class CalIndex(object):
         result['上涨概率'] = result['上涨概率'].round(2)
         
         return result
+
+
+if __name__ == '__main__':
+    np.random.seed(42)
+    dates = pd.date_range('2023-01-01', '2024-12-31', freq='B')
+    n = len(dates)
+    test_df = pd.DataFrame({
+        'trade_date': dates,
+        'open': 10 + np.cumsum(np.random.randn(n) * 0.02),
+        'close': 10 + np.cumsum(np.random.randn(n) * 0.02),
+        'volume': np.random.randint(1000000, 10000000, n)
+    })
+
+    print('=== 测试数据示例 ===')
+    print(test_df.head(10))
+    print(f'数据行数: {len(test_df)}')
+
+    cal_index = CalIndex()
+    print('\n=== 星期维度分析 ===')
+    weekday_result = cal_index.analyze_weekday_stats(test_df)
+    print(weekday_result.to_string(index=False))
+
+    print('\n=== 月度区间分析 ===')
+    month_result = cal_index.analyze_month_period_stats(test_df)
+    print(month_result.to_string(index=False))
