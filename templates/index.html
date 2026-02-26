@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票实时行情 - 昨日成交量TOP10</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 0;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        header p {
+            color: #8892b0;
+            font-size: 1.1rem;
+        }
+
+        .update-info {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+            color: #8892b0;
+            font-size: 0.9rem;
+        }
+
+        .update-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pulse {
+            width: 8px;
+            height: 8px;
+            background: #00d4ff;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .stock-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 20px 0;
+        }
+
+        .stock-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stock-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .stock-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .stock-card:hover::before {
+            opacity: 1;
+        }
+
+        .stock-card.up {
+            border-left: 4px solid #ff6b6b;
+        }
+
+        .stock-card.down {
+            border-left: 4px solid #51cf66;
+        }
+
+        .stock-card.flat {
+            border-left: 4px solid #868e96;
+        }
+
+        .stock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .stock-info h3 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .stock-code {
+            color: #8892b0;
+            font-size: 0.9rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        .rank-badge {
+            background: linear-gradient(135deg, #00d4ff, #7b2cbf);
+            color: #fff;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .price-section {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .current-price {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .price-change {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .change-value, .change-percent {
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .up .change-value, .up .change-percent {
+            color: #ff6b6b;
+        }
+
+        .down .change-value, .down .change-percent {
+            color: #51cf66;
+        }
+
+        .flat .change-value, .flat .change-percent {
+            color: #868e96;
+        }
+
+        .stock-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-label {
+            color: #8892b0;
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+
+        .detail-value {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #fff;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #8892b0;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0, 212, 255, 0.3);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            text-align: center;
+            padding: 40px;
+            color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
+            border-radius: 12px;
+            margin: 20px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            color: #8892b0;
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            .stock-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .current-price {
+                font-size: 1.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📈 股票实时行情</h1>
+            <p>昨日成交量前十名股票</p>
+            <div class="update-info">
+                <div class="update-indicator">
+                    <span class="pulse"></span>
+                    <span>实时更新中</span>
+                </div>
+                <span id="update-time">--</span>
+            </div>
+        </header>
+
+        <main>
+            <div id="stock-container" class="stock-grid">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>正在加载行情数据...</p>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>数据仅供参考，投资有风险，入市需谨慎</p>
+            <p>Powered by adata</p>
+        </footer>
+    </div>
+
+    <script>
+        const stockContainer = document.getElementById('stock-container');
+        const updateTimeEl = document.getElementById('update-time');
+
+        // 格式化数字
+        function formatNumber(num) {
+            if (num >= 100000000) {
+                return (num / 100000000).toFixed(2) + '亿';
+            } else if (num >= 10000) {
+                return (num / 10000).toFixed(2) + '万';
+            }
+            return num.toLocaleString();
+        }
+
+        // 格式化金额
+        function formatMoney(num) {
+            if (num >= 100000000) {
+                return (num / 100000000).toFixed(2) + '亿';
+            } else if (num >= 10000) {
+                return (num / 10000).toFixed(2) + '万';
+            }
+            return num.toFixed(2);
+        }
+
+        // 获取涨跌样式类
+        function getTrendClass(changePct) {
+            if (changePct > 0) return 'up';
+            if (changePct < 0) return 'down';
+            return 'flat';
+        }
+
+        // 获取涨跌符号
+        function getTrendSymbol(changePct) {
+            if (changePct > 0) return '+';
+            return '';
+        }
+
+        // 渲染股票卡片
+        function renderStockCard(stock, index) {
+            const trendClass = getTrendClass(stock.change_pct);
+            const trendSymbol = getTrendSymbol(stock.change_pct);
+
+            return `
+                <div class="stock-card ${trendClass}">
+                    <div class="stock-header">
+                        <div class="stock-info">
+                            <h3>${stock.stock_name}</h3>
+                            <span class="stock-code">${stock.stock_code}</span>
+                        </div>
+                        <div class="rank-badge">${index + 1}</div>
+                    </div>
+                    <div class="price-section">
+                        <span class="current-price">${stock.price.toFixed(2)}</span>
+                        <div class="price-change">
+                            <span class="change-value">${trendSymbol}${stock.change.toFixed(2)}</span>
+                            <span class="change-percent">${trendSymbol}${stock.change_pct.toFixed(2)}%</span>
+                        </div>
+                    </div>
+                    <div class="stock-details">
+                        <div class="detail-item">
+                            <span class="detail-label">成交量</span>
+                            <span class="detail-value">${formatNumber(stock.volume)}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">成交额</span>
+                            <span class="detail-value">${formatMoney(stock.amount)}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 获取数据
+        async function fetchData() {
+            try {
+                const response = await fetch('/api/top-volume-stocks');
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    const stocks = result.data;
+                    if (stocks.length === 0) {
+                        stockContainer.innerHTML = '<div class="error-message">暂无数据</div>';
+                        return;
+                    }
+
+                    stockContainer.innerHTML = stocks.map((stock, index) =>
+                        renderStockCard(stock, index)
+                    ).join('');
+
+                    updateTimeEl.textContent = '更新时间: ' + result.update_time;
+                } else {
+                    throw new Error('数据获取失败');
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                stockContainer.innerHTML = `
+                    <div class="error-message">
+                        <p>数据加载失败，请稍后重试</p>
+                        <p style="font-size: 0.85rem; margin-top: 10px;">${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // 初始化加载
+        fetchData();
+
+        // 每5秒自动刷新
+        setInterval(fetchData, 5000);
+    </script>
+</body>
+</html>
