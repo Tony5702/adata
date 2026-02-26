@@ -49,8 +49,10 @@ class StockMarketQQ(StockMarketTemplate):
         for data_str in data_list:
             if len(data_str) < 8:
                 continue
+            if '"' in data_str:
+                data_str = data_str.split('"')[1]
             code = data_str.split('~')
-            if len(code) == 11:
+            if len(code) >= 8:
                 data.append(code[1:8])
 
         # 4. 封装数据
@@ -58,8 +60,10 @@ class StockMarketQQ(StockMarketTemplate):
         result_df = pd.DataFrame(data=data, columns=data_columns)
         # 单位：手，万元
         mask = result_df['stock_code'].str.startswith(('0', '3', '6', '9'))
-        result_df.loc[mask, 'volume'] = result_df['volume'].astype(int) * 100
-        result_df.loc[mask, 'amount'] = result_df['amount'].astype(float) * 10000
+        result_df['volume'] = result_df['volume'].astype(object)
+        result_df['amount'] = result_df['amount'].astype(object)
+        result_df.loc[mask, 'volume'] = result_df.loc[mask, 'volume'].astype(int) * 100
+        result_df.loc[mask, 'amount'] = result_df.loc[mask, 'amount'].astype(float) * 10000
         return result_df[self._MARKET_CURRENT_COLUMNS]
 
     @handler_null
