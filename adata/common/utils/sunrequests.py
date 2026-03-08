@@ -208,6 +208,28 @@ class SunRequests(object):
                 return res
         return res
     
+    def get(self, url, params=None, **kwargs):
+        """
+        GET请求，封装request方法
+        :param url: 请求URL
+        :param params: 请求参数
+        :param kwargs: 其它参数
+        :return: 响应对象
+        """
+        kwargs.setdefault('allow_redirects', True)
+        return self.request('get', url, params=params, **kwargs)
+    
+    def post(self, url, data=None, json=None, **kwargs):
+        """
+        POST请求，封装request方法
+        :param url: 请求URL
+        :param data: 请求数据
+        :param json: JSON数据
+        :param kwargs: 其它参数
+        :return: 响应对象
+        """
+        return self.request('post', url, data=data, json=json, **kwargs)
+    
     def set_rate_limit(self, domain: str, requests_per_minute: int):
         """
         设置指定域名的频率限制
