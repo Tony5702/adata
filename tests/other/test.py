@@ -6,7 +6,7 @@
 @log: 
 """
 import pandas as pd
-import requests
+from adata.common.utils import requests
 
 
 # @lru_cache()

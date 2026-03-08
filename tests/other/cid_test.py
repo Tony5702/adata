@@ -7,7 +7,7 @@
 @log: change log
 """
 import pandas as pd
-import requests
+from adata.common.utils import requests
 
 
 def code_id_map_em() -> dict:
