@@ -13,7 +13,7 @@ import time
 from collections import defaultdict
 from urllib.parse import urlparse
 
-import requests
+import requests as _requests
 
 
 class RateLimiter:
@@ -200,7 +200,7 @@ class SunRequests(object):
         for i in range(times):
             if wait_time:
                 time.sleep(wait_time / 1000)
-            res = requests.request(method=method, url=url, proxies=proxies, **kwargs)
+            res = _requests.request(method=method, url=url, proxies=proxies, **kwargs)
             if res.status_code in (200, 404):
                 return res
             time.sleep(retry_wait_time / 1000)
@@ -233,7 +233,7 @@ class SunRequests(object):
         ip = SunProxy.get('ip')
         proxy_url = SunProxy.get('proxy_url')
         if not ip and is_proxy and proxy_url:
-            ip = requests.get(url=proxy_url).text.replace('\r\n', '') \
+            ip = _requests.get(url=proxy_url).text.replace('\r\n', '') \
                 .replace('\r', '').replace('\n', '').replace('\t', '')
         if is_proxy and ip:
             proxies = {'https': f"http://{ip}", 'http': f"http://{ip}"}

@@ -12,14 +12,14 @@ def test_default_rate_limit():
     print("=== 测试默认频率限制 ===")
     print("默认限制：每分钟30次")
     
-    url = "http://push2his.eastmoney.com/api/qt/stock/kline/get"
+    url = "https://httpbin.org/get"
     
     start_time = time.time()
     for i in range(5):
         try:
-            # 使用rate_limit=False来测试无限制的情况
-            # 这里我们只是测试请求是否能正常发出，不等待响应
-            print(f"请求 {i+1}: {time.time() - start_time:.2f}s")
+            # 测试默认频率限制
+            res = requests.request(method='get', url=url, timeout=10)
+            print(f"请求 {i+1}: 状态码={res.status_code}, 耗时={time.time() - start_time:.2f}s")
         except Exception as e:
             print(f"请求 {i+1} 出错: {e}")
     
