@@ -42,6 +42,11 @@ class SunProxy(object):
 
 
 class SunRequests(object):
+    # 频率限制相关类变量
+    _domain_requests = {}  # 存储域名请求信息: {domain: {count: int, timestamp: float}}
+    _domain_limits = {}  # 存储域名限制: {domain: int}，默认30次/分钟
+    _lock = threading.Lock()  # 线程锁，确保并发安全
+
     def __init__(self, sun_proxy: SunProxy = None) -> None:
         super().__init__()
         self.sun_proxy = sun_proxy
@@ -58,9 +63,11 @@ class SunRequests(object):
         :param kwargs: 其它 requests 参数，用法相同
         :return: res
         """
-        # 1. 获取设置代理
+        # 1. 检查频率限制
+        self._check_rate_limit(url)
+        # 2. 获取设置代理
         proxies = self.__get_proxies(proxies)
-        # 2. 请求数据结果
+        # 3. 请求数据结果
         res = None
         for i in range(times):
             if wait_time:
@@ -72,6 +79,53 @@ class SunRequests(object):
             if i == times - 1:
                 return res
         return res
+
+    def _check_rate_limit(self, url):
+        """
+        检查频率限制
+        :param url: 请求URL
+        """
+        from urllib.parse import urlparse
+        
+        # 解析域名
+        parsed_url = urlparse(url)
+        domain = parsed_url.netloc
+        
+        if not domain:
+            return
+        
+        with self._lock:
+            # 获取当前时间
+            current_time = time.time()
+            # 获取域名请求信息
+            domain_info = self._domain_requests.get(domain, {})
+            # 获取域名限制次数，默认30次/分钟
+            limit = self._domain_limits.get(domain, 30)
+            
+            # 检查是否需要重置计数（超过1分钟）
+            if domain_info.get('timestamp', 0) < current_time - 60:
+                # 重置计数
+                self._domain_requests[domain] = {'count': 1, 'timestamp': current_time}
+            elif domain_info.get('count', 0) >= limit:
+                # 计算需要等待的时间
+                wait_time = 60 - (current_time - domain_info['timestamp'])
+                if wait_time > 0:
+                    time.sleep(wait_time)
+                # 重置计数
+                self._domain_requests[domain] = {'count': 1, 'timestamp': time.time()}
+            else:
+                # 增加计数
+                domain_info['count'] += 1
+                self._domain_requests[domain] = domain_info
+
+    def set_domain_limit(self, domain, limit):
+        """
+        设置域名请求限制
+        :param domain: 域名
+        :param limit: 限制次数/分钟
+        """
+        with self._lock:
+            self._domain_limits[domain] = limit
 
     def __get_proxies(self, proxies):
         """
